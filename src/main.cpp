@@ -1,69 +1,53 @@
-#include "trs.hpp"
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <vector>
+#include "trs.hpp" //Meta, Variable
+#include <iostream> //cout
+#include <fstream> // ofstream, ifstream
 
-struct TestStruct
+struct foo
 {
-  int integer;
-  float floatingPoint;
-  double doublefloat;
-  char character;
-  bool boolean;
-  std::string characterString;
-  TestStruct() : integer(0),
-    floatingPoint(10.0f),
-    doublefloat(10.0),
-    character('c'),
-    boolean(true)
-  {}
-};
-
-struct TestStruct2
-{
-  TestStruct abstract;
+  int bar;
+  foo(int val) : bar(val) {}
 };
 
 int main(void)
 {
   using namespace std;
+  Meta::Register<int>("integer"); // Basic type registration
+  Meta::Register<foo>("foo"); // Class/struct registration
+  Meta::Register("bar", &foo::bar); // Register abstract members
 
-  Meta::Register<int>("integer"); // basic type registration
-  Meta::Register<float>("float");
-  Meta::Register<double>("double");
-  Meta::Register<bool>("bool");
-  Meta::Register<char>("char");
-  Meta::Register<char *>("character pointer");
-  Meta::Register<string>("string"); // string is a little flimsy, will only deserialize a token atm.
-  Meta::Register<TestStruct>("TestStruct");
-  Meta::Register("integer", &TestStruct::integer);
-  Meta::Register("floatingPoint", &TestStruct::floatingPoint);
-  Meta::Register("doubleFloat", &TestStruct::doublefloat);
-  Meta::Register("character", &TestStruct::character);
-  Meta::Register("boolean", &TestStruct::boolean);
+  MetaInfo intMeta = Meta::Get<int>(); // Get meta struct by typename. 
+  MetaInfo fooMeta = Meta::Get("foo"); // get meta struct by string identifier.
+  MemberInfo invalInfo = fooMeta.FindMember("NA"); // finding a member info struct.
 
-  Meta::Register<TestStruct2>("TestStruct2");
-  Meta::Register("abstract", &TestStruct2::abstract);
+    if (!invalInfo.Valid()) //valid member/meta check.
+      cout << "NA is not a registered member!" << endl;
 
-  MetaInfo testMeta = Meta::Get("TestStruct");
-  MetaInfo explosionMeta = Meta::Get("something?");
-  MetaInfo stringMeta = Meta::Get<std::string>();
-  MemberInfo memfake = testMeta.FindMember("j");
-  
-  if (!stringMeta.Valid())
-    printf("this is not a registered type!\n");
+  foo data1(10); // data to store, serialize
+  foo data2(1); // data to store, deserialize
 
-  if (!explosionMeta.Valid())
-    printf("this is not a registered type!\n");
+  Variable var1 = data1; // Store data generically.
+  Variable var2 = data2;
 
-  if (!memfake.Valid())
-    printf("this is not a registered member!\n");
+  //Serialization of data in memory to file.
+  ofstream ofile("filename.txt");
+  var1.Serialize(ofile);
+  ofile.close();
 
-  // test arrays.
-  std::string name = "Hello World!";
-  Variable var1 = name;
-  cout << var1 << endl;
+  cout << endl << "Lets deserialize a " << fooMeta.name << endl;
 
+  // Deserialization of file into memory.
+  ifstream  ifile("filename.txt");
+  var2.Deserialize(ifile);
+  ifile.close();
+
+  cout << var2; // output data to standard out.
   return 0;
 }
+
+/*
+NA is not a registered member!
+foo
+{
+bar = 10
+}
+*/
