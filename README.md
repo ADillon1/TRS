@@ -15,9 +15,9 @@ This system was designed to provide an accessible, extendible, and maintainable 
 # Usage
 ## Example
 ```C++
-#include "trs.hpp" //Meta, Variable
-#include <iostream> //cout
-#include <fstream> // ofstream, ifstream
+#include "trs.hpp"  // Meta, Variable
+#include <iostream> // cout
+#include <fstream>  // ofstream, ifstream
 
 struct foo
 {
@@ -28,19 +28,20 @@ struct foo
 int main(void)
 {
   using namespace std;
-  Meta::Register<int>("integer"); // Basic type registration
-  Meta::Register<foo>("foo"); // Class/struct registration
+  Meta::Register<int>("integer");   // Basic type registration
+  Meta::Register<foo>("foo");       // Class/struct registration
   Meta::Register("bar", &foo::bar); // Register abstract members
 
-  MetaInfo intMeta = Meta::Get<int>(); // Get meta struct by typename. 
-  MetaInfo fooMeta = Meta::Get("foo"); // get meta struct by string identifier.
+  MetaInfo intMeta = Meta::Get<int>();             // Get meta struct by typename. 
+  MetaInfo fooMeta = Meta::Get("foo");             // get meta by string identifier.
   MemberInfo invalInfo = fooMeta.FindMember("NA"); // finding a member info struct.
 
-    if (!invalInfo.Valid()) //valid member/meta check.
-      cout << "NA is not a registered member!" << endl;
+  //valid member/meta check.
+  if (!invalInfo.Valid()) 
+    cout << "NA is not a registered member!" << endl;
 
   foo data1(10); // data to store, serialize
-  foo data2(1); // data to store, deserialize
+  foo data2(1);  // data to store, deserialize
 
   Variable var1 = data1; // Store data generically.
   Variable var2 = data2;
