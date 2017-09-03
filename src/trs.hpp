@@ -2,6 +2,9 @@
     TRS is a stand alone type introspection and serialization system for C++11.
 
     \author Andrew Dillon
+    \date   9/3/2017
+
+    \par Licensed under MIT, see LICENSE for details.
 */
 #pragma once
 #include <unordered_map> // MetaMap
@@ -372,7 +375,7 @@ public:
         Reference to data to store.
   */
   template <typename T>
-  Variable(const T &val) : data(const_cast< T*>(&val.data)), meta(&Meta::Get<T>()) {}
+  Variable(const T &val) : _data(const_cast< T*>(&val)), _meta(&Meta::Get<T>()) {}
 
   /** Variable copy constructor.
       Shallow copies data and meta data addresses.
