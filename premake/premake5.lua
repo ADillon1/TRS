@@ -46,6 +46,7 @@ newaction {
   description = "Removes the build directory.",
   execute     = function ()
     os.rmdir(dirBuild)
+    os.rmdir(dirObjectFiles)
     print("done.")
   end
 }
@@ -55,7 +56,7 @@ if (_ACTION ~= nil) then
   location(dirBuild .. _ACTION)
   configurations {"Debug", "Release"}
 
-  project("Unit Tests")
+  project("unit-tests")
     language("C++")
     kind("ConsoleApp")
     objdir(dirObjectFiles)

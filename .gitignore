@@ -26,7 +26,14 @@
 *.a
 *.lib
 
+# Debug files
+*.pdb
+
 # Executables
 bin/*.exe
 *.out
 *.app
+
+# Directories
+build/
+temp/

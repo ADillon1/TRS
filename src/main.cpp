@@ -10,24 +10,14 @@ struct TestStruct
   float floatingPoint;
   double doublefloat;
   char character;
-  char characterArray[10];
-  int integerArray[10];
   bool boolean;
-  bool booleanArray[10];
   std::string characterString;
   TestStruct() : integer(0),
     floatingPoint(10.0f),
     doublefloat(10.0),
     character('c'),
     boolean(true)
-  {
-    for (size_t i = 0; i < 10; ++i)
-    {
-      integerArray[i] = i + 1;
-      booleanArray[i] = false;
-      characterArray[i] = 'a';
-    }
-  }
+  {}
 };
 
 struct TestStruct2
@@ -46,16 +36,12 @@ int main(void)
   Meta::Register<char>("char");
   Meta::Register<char *>("character pointer");
   Meta::Register<string>("string"); // string is a little flimsy, will only deserialize a token atm.
-
   Meta::Register<TestStruct>("TestStruct");
   Meta::Register("integer", &TestStruct::integer);
   Meta::Register("floatingPoint", &TestStruct::floatingPoint);
   Meta::Register("doubleFloat", &TestStruct::doublefloat);
   Meta::Register("character", &TestStruct::character);
-  Meta::Register("characterArray", &TestStruct::characterArray);
-  Meta::Register("integerArray", &TestStruct::integerArray);
   Meta::Register("boolean", &TestStruct::boolean);
-  Meta::Register("booleanArray", &TestStruct::booleanArray);
 
   Meta::Register<TestStruct2>("TestStruct2");
   Meta::Register("abstract", &TestStruct2::abstract);
