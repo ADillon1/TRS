@@ -1,13 +1,13 @@
 # Introduction
 TRS is a dynamic reflection and automated serialization system designed for C++11.
 
-This system was designed to provide an accessible, extendible, and maintainable type instrospection system for C++ projects.
+This system was designed to provide an accessible, extendible, and maintainable stand alone type instrospection system for C++ projects.
 
 ## Features
 1. Header only and single file for easy integration into any projects.
-2. Desigend for use on Windows and Linux platform.
-3. Simple templatized interface for registering and managing basic and abstract data type information.
-4. Default JSON like serialization for writing data of registered types to and from human readible files.
+2. Designed for use on Windows and Linux platform.
+3. Simple template interface for registering, managing, and referencing data type information.
+4. Default JSON like serialization for registered types to and from human readible text files.
 5. Automated serialization upon registration of both basic and abstract types.
 6. Runtime type information useful for debugging tools.
 7. Dependecy free.
@@ -80,9 +80,9 @@ Tested on:
 
 ## Instructions
 ### Premake5
-Run [premake5](https://github.com/premake/premake-core/wiki/Using-Premake "Premake5's Documentation") from the premake directory using the action with the preferred build enviornment. Resulting solutions/make files will be outputt into the \build directory.
+Run [premake5](https://github.com/premake/premake-core/wiki/Using-Premake "Premake5's Documentation") from the premake directory using the action with the preferred build enviornment. Resulting solutions/make files will be output into the \build directory.
 
-Upon compiling using your preferred build enviornment, objects will appear in /tmp, while the build target is /bin.
+Compiling/Linking using your preferred build enviornment, objects will appear in /temp, while the build target is /bin.
 
 The clean action can be used to automatically remove everything but the source and premake5 when you are done editing.
 
