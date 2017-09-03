@@ -73,10 +73,10 @@ foo
 
 # Building
 Tested on:
-[ ] Visual Studio 2017
-[x] Visual Studio 2015
-[ ] Visual Studio 2013
-[x] g++ 4.8.4
+- [ ] Visual Studio 2017
+- [x] Visual Studio 2015
+- [ ] Visual Studio 2013
+- [x] g++ 4.8.4
 
 ## Instructions
 ### Premake5
