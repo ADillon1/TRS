@@ -5,7 +5,7 @@ local dirWorking = "../"
 local dirBinary = "../bin"
 local dirSource = "../src/"
 local dirBuild = "../build/"
-local dirObjectFiles = "../tmp/"
+local dirObjectFiles = "../temp/"
 
 local flagsRelease = {
   "Symbols",
@@ -47,6 +47,7 @@ newaction {
   execute     = function ()
     os.rmdir(dirBuild)
     os.rmdir(dirObjectFiles)
+    os.rmdir(dirBinary)
     print("done.")
   end
 }
