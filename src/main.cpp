@@ -11,11 +11,25 @@ struct foo
 int main(void)
 {
   using namespace std;
-  Meta::Register<int>("integer"); // Basic type registration
+
+  MetaInfo c = Meta::Get("char"); // automatically registered types.
+  MetaInfo uc = Meta::Get("unsigned char");
+  MetaInfo i = Meta::Get("int");
+  MetaInfo ui = Meta::Get("unsigned int");
+  MetaInfo s = Meta::Get("short");
+  MetaInfo usi = Meta::Get("unsigned short");
+  MetaInfo li = Meta::Get("long");
+  MetaInfo uli = Meta::Get("unsigned long");
+  MetaInfo fp = Meta::Get("float");
+  MetaInfo df = Meta::Get("double");
+  MetaInfo ld = Meta::Get("long double");
+  MetaInfo b = Meta::Get("bool");
+  MetaInfo str = Meta::Get("string");
+
   Meta::Register<foo>("foo"); // Class/struct registration
   Meta::Register("bar", &foo::bar); // Register abstract members
 
-  MetaInfo intMeta = Meta::Get<int>(); // Get meta struct by typename. 
+  MetaInfo intMeta = Meta::Get<signed int>(); // Get meta struct by typename. 
   MetaInfo fooMeta = Meta::Get("foo"); // get meta struct by string identifier.
   MemberInfo invalInfo = fooMeta.FindMember("NA"); // finding a member info struct.
 
