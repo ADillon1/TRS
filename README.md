@@ -100,13 +100,12 @@ Define [CRT_SECURE_NO_WARNINGS](https://stackoverflow.com/questions/16883037/rem
 # Coming soon
 
 1. Switch over to test driven development with unit tests.
-2. Automated registeration of plain old data types.
-3. (possible) Support for static arrays of registered types.
-4. Support for stl containers of Variables, such as vectors, lists, and sets.
-5. (Possible) Additional compile time configuration options for how objects are serialized.
-6. Clean up and provide additional documentation using Doxygen.
-7. Prevent possible double registration using asserts.
-8. Handling of exceptions from new/delete/unorderered_map.
+2. (possible) Support for static arrays of registered types.
+3. Support for stl containers of Variables, such as vectors, lists, and sets.
+4. (Possible) Additional compile time configuration options for how objects are serialized.
+5. Clean up and provide additional documentation using Doxygen.
+6. Prevent possible double registration using asserts.
+7. Handling of exceptions from new/delete/unorderered_map.
 
 
 
