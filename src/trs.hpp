@@ -357,6 +357,30 @@ public:
   }
 };
 
+namespace Reflection
+{
+  /** POD struct
+  Used to auto Register POD types for the user at compile time.
+  */
+  template <typename T>
+  struct POD { POD(const char * name) { Meta::Register<T>(name); } };
+
+  /***** Auto Registered Types *****/
+  Reflection::POD<char> c("char");
+  Reflection::POD<unsigned char> uc("unsigned char");
+  Reflection::POD<int> i("int");
+  Reflection::POD<unsigned int> ui("unsigned int");
+  Reflection::POD<short int> si("short");
+  Reflection::POD<unsigned short int> usi("unsigned short");
+  Reflection::POD<long int> li("long");
+  Reflection::POD<unsigned long int> uli("unsigned long");
+  Reflection::POD<float> fp("float");
+  Reflection::POD<double> df("double");
+  Reflection::POD<long double> ld("long double");
+  Reflection::POD<bool> b("bool");
+  Reflection::POD<std::string> str("string");
+}
+
 /** Generic variable class.
     Used to store data generically.
 */
