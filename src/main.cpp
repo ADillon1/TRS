@@ -11,6 +11,11 @@ struct foo
 int main(void)
 {
   using namespace std;
+  Variable variable;
+
+  if (variable.Valid())
+    cout << "Valid variable!" << endl;
+
   Meta::Register<int>("integer"); // Basic type registration
   Meta::Register<foo>("foo"); // Class/struct registration
   Meta::Register("bar", &foo::bar); // Register abstract members

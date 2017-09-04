@@ -367,6 +367,11 @@ class Variable
   void *_data;
   const Reflection::MetaData *_meta;
 public:
+
+  /** Default constructor
+  Creates an invalid Variable
+  */
+  Variable() : _data(nullptr), _meta(nullptr) {}
   
   /** Templatized copy constructor
       Stores val of type T generically with its associated meta.
@@ -400,6 +405,14 @@ public:
     istream to input from.
   */
   void Deserialize(std::istream &is) { if (_meta->_deserialize) _meta->_deserialize(is, *this); }
+
+  /** Validity Check
+      Checks if the variable contains valid data & meta information
+
+      \return
+        True if valid, false if not.
+  */
+  bool Valid() const { return _data && _meta && _meta->Valid(); }
 
   /** Data cast.
       Cast data into type T, asserts if T and stored meta don't match.
