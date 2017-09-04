@@ -343,6 +343,18 @@ public:
                  uintptr_t(&((T*)nullptr->*member)),
                  Meta::Get<M>()));
   }
+
+  template <typename T>
+  static constexpr void SetSerializer(SerializeFN fn) 
+  { 
+    const_cast<Reflection::MetaData &>(Get<T>())._serialize = fn;
+  }
+
+  template <typename T>
+  static constexpr void SetDeserializer(DeserializeFN fn) 
+  { 
+    const_cast<Reflection::MetaData &>(Get<T>())._deserialize = fn; 
+  }
 };
 
 /** Generic variable class.
@@ -380,7 +392,7 @@ public:
         Reference to data to store.
   */
   template <typename T>
-  Variable(const T &val) : _data(const_cast<T*>(&val)), _meta(&Meta::Get<T>()) { assert(_meta->Valid()); }
+  Variable(const T &val) : _data(const_cast<T*>(&val)), _meta(&Meta::Get<T>()) { assert(_meta->Valid()); } // meta must be registered!
 
   /** Variable copy constructor.
       Shallow copies data and meta data addresses.

@@ -11,7 +11,6 @@ struct foo
 int main(void)
 {
   using namespace std;
-  
   Meta::Register<int>("integer"); // Basic type registration
   Meta::Register<foo>("foo"); // Class/struct registration
   Meta::Register("bar", &foo::bar); // Register abstract members
