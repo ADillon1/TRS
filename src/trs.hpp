@@ -380,7 +380,7 @@ public:
         Reference to data to store.
   */
   template <typename T>
-  Variable(const T &val) : _data(const_cast< T*>(&val)), _meta(&Meta::Get<T>()) {}
+  Variable(const T &val) : _data(const_cast<T*>(&val)), _meta(&Meta::Get<T>()) { assert(_meta->Valid()); }
 
   /** Variable copy constructor.
       Shallow copies data and meta data addresses.
