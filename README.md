@@ -3,14 +3,15 @@ TRS is a dynamic reflection and automated serialization system designed for C++1
 
 This system was designed to provide an accessible, extendible, and maintainable stand alone type instrospection system for C++ projects.
 
-Version: 0.2
+Version: 0.3
 
 ## Features
 1. Header only and single file for easy integration into any project.
 2. Designed for use on Windows and Linux platform.
-3. Simple template interface for registering, managing, and referencing data type information.
+3. Simple template interface for registering, managing, and referencing abstract type information.
 4. Default JSON like serialization for registered types to and from human readible text files.
 5. Automated serialization upon registration of both basic and abstract types.
+6. Automated registeration of commonly used C++ types.
 6. Runtime type information useful for debugging tools.
 7. Dependecy free.
 
