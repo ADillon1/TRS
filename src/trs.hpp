@@ -13,15 +13,19 @@
 #include <ostream>       // Serialization
 #include <cstring>       // sprintf
 #include <string>        // string
+#include <array>         // array
 
-/***** Reflection Forward Declarations *****/
+/***** Reflection Backend Forward Declarations *****/
 namespace Reflection { class MetaData;  class Member; }
-class Meta;
-class Variable;
+
+/***** Reflection Interface Forward Declarations *****/
+namespace Trs { class Meta;  class Variable; }
 
 /***** Serialization Forward Declarations *****/
 namespace Serialization
 {
+  using namespace Trs;
+
   /****** Function Prototypes *****/
   void GenericSerialize(std::ostream &, Variable);
   void GenericDeserialize(std::istream &, Variable);
@@ -32,12 +36,16 @@ namespace Serialization
 }
 
 /***** Serialization Declarations *****/
-typedef void(*SerializeFN)(std::ostream &, Variable);
-typedef void(*DeserializeFN)(std::istream &, Variable);
+typedef void(*SerializeFN)(std::ostream &, Trs::Variable);
+typedef void(*DeserializeFN)(std::istream &, Trs::Variable);
 
 /***** Info Types for User *****/
 typedef const Reflection::MetaData & MetaInfo;
 typedef const Reflection::Member & MemberInfo;
+
+/*****Function typedefs *****/
+typedef void(* const CallFn)(Trs::Variable ret, void * self, void *fn, Trs::Variable *args, size_t num_args);
+typedef MetaInfo ( * const GetArgFn)(size_t index);
 
 /***** Reflection Backend *****/
 namespace Reflection
@@ -51,9 +59,9 @@ namespace Reflection
   */
   class Member
   {
-    friend class ::Meta;
+    friend class Trs::Meta;
     friend class MetaData;
-    friend void Serialization::GenericSerialize(std::ostream &, Variable);
+    friend void Serialization::GenericSerialize(std::ostream &, Trs::Variable);
 
     /** Constructor
 
@@ -91,10 +99,9 @@ namespace Reflection
 
   class MetaData
   {
-    friend class ::Meta;
-    template <typename T, bool a = std::is_class<T>::value> friend struct Setup;
-    friend void Serialization::GenericSerialize(std::ostream &, Variable);
-    friend class ::Variable;
+    friend class Trs::Meta;
+    friend void Serialization::GenericSerialize(std::ostream &, Trs::Variable);
+    friend class Trs::Variable;
 
     /** Private default constructor
         Defaults to unregistered type.
@@ -192,170 +199,131 @@ namespace Reflection
     size_t size;
   };
 
-  /** Templatized setup struct.
-      Default serialization function ptr assignment for classes.
-  */
-  template <typename T, bool a>
-  struct Setup
+  template <class T, std::enable_if_t<!std::is_class<T>::value || std::is_same<std::string, T>::value>* = nullptr>
+  constexpr void Serializers()
   {
-    /** Sets up serialization pointers for the given metadata.
-        
-        \param meta
-          Meta instance to setup.
-    */
-    static void Serializers(MetaData &meta)
-    {
-      meta._serialize = Serialization::GenericSerialize;
-      meta._deserialize = Serialization::GenericDeserialize;
-    }
-  };
-
-
-  /** Templatized setup struct.
-      Specialization for POD types.
-  */
-  template <typename T>
-  struct Setup<T, false> 
+    Meta::SetSerializer<T>(Serialization::Serialize<T>);
+    Meta::SetDeserializer<T>(Serialization::Deserialize<T>);
+  }
+  
+  template <class T, std::enable_if_t<std::is_class<T>::value && !std::is_same<std::string, T>::value>* = nullptr>
+  constexpr void Serializers()
   {
-    /** Sets up serialization pointers for the given metadata.
-
-        \param meta
-          Meta instance to setup.
-    */
-    static void Serializers(MetaData &meta)
-    { 
-      meta._serialize = Serialization::Serialize<T>;
-      meta._deserialize = Serialization::Deserialize<T>;
-    } 
-  };
-
-  /** Templatized setup struct.
-      Specialization for std::string, which we treat as a POD type.
-  */
-  template <>
-  struct Setup<std::string, true>
-  {
-    /** Sets up serialization pointers for the given metadata.
-
-        \param meta
-          Meta instance to setup.
-    */
-    static void Serializers(MetaData &meta)
-    {
-      meta._serialize = Serialization::Serialize<std::string>;
-      meta._deserialize = Serialization::Deserialize<std::string>;
-    }
-  };
+    Meta::SetSerializer<T>(Serialization::GenericSerialize);
+    Meta::SetDeserializer<T>(Serialization::GenericDeserialize);
+  }
 }
 
 /***** Reflection Interface *****/
-
-/** Meta interface class.
-    Used to register, get, and modify metainfo instances
-*/
-class Meta
+namespace Trs
 {
-  /** Private map singleton.
-      Stores type name and metainfo instance as a key value pair.
-
-      \return
-        Reference to the map.
+  /** Meta interface class.
+      Used to register, get, and modify metainfo instances
   */
-  static Reflection::MetaMap &GetMap() // hidden map for string hashing.
+  class Meta
   {
-    static Reflection::MetaMap map;
-    return map;
-  }
+    /** Private map singleton.
+        Stores type name and metainfo instance as a key value pair.
 
-public:
+        \return
+          Reference to the map.
+    */
+    static Reflection::MetaMap &GetMap() // hidden map for string hashing.
+    {
+      static Reflection::MetaMap map;
+      return map;
+    }
 
-  /** Gets MetaData info for type T
-      Templatized Getter for type information.
+  public:
 
-      \return
-        Returns a meta instance of type T, only valid if registered.
-  */
-  template <typename T>
-  static MetaInfo Get() 
-  {
-    static Reflection::MetaData meta;
-    return meta;
-  }
+    /** Gets MetaData info for type T
+        Templatized Getter for type information.
 
-  /** Gets MetaData info by string
-      Hashs map by registered string identifier for type.
+        \return
+          Returns a meta instance of type T, only valid if registered.
+    */
+    template <typename T>
+    static MetaInfo Get()
+    {
+      static Reflection::MetaData meta;
+      return meta;
+    }
 
-      \param name
-        type name identifier to search for
+    /** Gets MetaData info by string
+        Hashs map by registered string identifier for type.
 
-      \return
-        A valid MetaInfo if registered, invalid MetaInfo if not.
-  */
-  static MetaInfo Get(std::string &name) 
-  { 
-    auto it = GetMap().find(name);
-    return it != GetMap().end() ? it->second : *(Reflection::MetaData *)nullptr;
-  }
+        \param name
+          type name identifier to search for
 
-  /** Gets MetaData info by c-string.
-      Hashs map by registered string identifier for type.
+        \return
+          A valid MetaInfo if registered, invalid MetaInfo if not.
+    */
+    static MetaInfo Get(std::string &name)
+    {
+      auto it = GetMap().find(name);
+      return it != GetMap().end() ? it->second : *(Reflection::MetaData *)nullptr;
+    }
 
-      \param name
-        type name identifier to search for
+    /** Gets MetaData info by c-string.
+        Hashs map by registered string identifier for type.
 
-      \return
-        A valid MetaInfo if registered, invalid MetaInfo if not.
-  */
-  static MetaInfo Get(const char *name) { return Get(std::string(name)); }
+        \param name
+          type name identifier to search for
 
-  /** Registration for type T.
-      Registers Type T to the reflection & serialization systems.
+        \return
+          A valid MetaInfo if registered, invalid MetaInfo if not.
+    */
+    static MetaInfo Get(const char *name) { return Get(std::string(name)); }
 
-      \param name
-        unique name to use for string searching type T meta info.
-  
-  */
-  template <typename T>
-  static constexpr void Register(const char * name)
-  {
-    using namespace Reflection;
-    const_cast<MetaData &>(Get<T>()).name = name;
-    const_cast<MetaData &>(Get<T>()).size = sizeof(T);
-    Setup<T>::Serializers(const_cast<MetaData &>(Get<T>()));
-    GetMap().emplace(KeyValue(name, const_cast<MetaData &>(Get<T>())));
-  }
+    /** Registration for type T.
+        Registers Type T to the reflection & serialization systems.
 
-  /** Registration for type T's members.
-      Registers members to the reflection & serialization system.
+        \param name
+          unique name to use for string searching type T meta info.
 
-      \param name
-        unique name to use for string searching type T meta info.
+    */
+    template <typename T>
+    static constexpr void Register(const char * name)
+    {
+      using namespace Reflection;
+      const_cast<MetaData &>(Get<T>()).name = name;
+      const_cast<MetaData &>(Get<T>()).size = sizeof(T);
+      Serializers<T>();
+      GetMap().emplace(KeyValue(name, const_cast<MetaData &>(Get<T>())));
+    }
 
-      \param member
-        Class member to register as a reference.
-  */
-  template <class T, typename M>
-  static constexpr void Register(const char * name, M T::* member)
-  {
-    using namespace Reflection;
-    const_cast<MetaData &>(Get<T>()).AddMember(
-      new Member(name, 
-                 uintptr_t(&((T*)nullptr->*member)),
-                 Meta::Get<M>()));
-  }
+    /** Registration for type T's members.
+        Registers members to the reflection & serialization system.
 
-  template <typename T>
-  static constexpr void SetSerializer(SerializeFN fn) 
-  { 
-    const_cast<Reflection::MetaData &>(Get<T>())._serialize = fn;
-  }
+        \param name
+          unique name to use for string searching type T meta info.
 
-  template <typename T>
-  static constexpr void SetDeserializer(DeserializeFN fn) 
-  { 
-    const_cast<Reflection::MetaData &>(Get<T>())._deserialize = fn; 
-  }
-};
+        \param member
+          Class member to register as a reference.
+    */
+    template <class T, typename M>
+    static constexpr void Register(const char * name, M T::* member)
+    {
+      using namespace Reflection;
+      const_cast<MetaData &>(Get<T>()).AddMember(
+        new Member(name,
+          uintptr_t(&((T*)nullptr->*member)),
+          Meta::Get<M>()));
+    }
+
+    template <typename T>
+    static constexpr void SetSerializer(SerializeFN fn)
+    {
+      const_cast<Reflection::MetaData &>(Get<T>())._serialize = fn;
+    }
+
+    template <typename T>
+    static constexpr void SetDeserializer(DeserializeFN fn)
+    {
+      const_cast<Reflection::MetaData &>(Get<T>())._deserialize = fn;
+    }
+  };
+}
 
 namespace Reflection
 {
@@ -367,6 +335,7 @@ namespace Reflection
 
   /***** Auto Registered Types *****/
   Reflection::POD<char> c("char");
+  Reflection::POD<const char *> cc("const char *");
   Reflection::POD<unsigned char> uc("unsigned char");
   Reflection::POD<int> i("int");
   Reflection::POD<unsigned int> ui("unsigned int");
@@ -381,99 +350,116 @@ namespace Reflection
   Reflection::POD<std::string> str("string");
 }
 
-/** Generic variable class.
-    Used to store data generically.
-*/
-class Variable
+namespace Trs
 {
-  friend void Serialization::GenericSerialize(std::ostream &, Variable);
-  friend void Serialization::GenericDeserialize(std::istream &, Variable);
-
-  /** Manual setup constructor.
-      Used internally by serialization.
-
-      \param data
-        pointer to data variable represents.
-
-      \param meta
-        pointer to the meta type information representing the data.
+  /** Generic variable class.
+      Used to store data generically.
   */
-  Variable(void *data, const Reflection::MetaData *meta) : _data(data), _meta(meta) {}
-
-  void *_data;
-  const Reflection::MetaData *_meta;
-public:
-
-  /** Default constructor
-  Creates an invalid Variable
-  */
-  Variable() : _data(nullptr), _meta(nullptr) {}
-  
-  /** Templatized copy constructor
-      Stores val of type T generically with its associated meta.
-
-      \param val
-        Reference to data to store.
-  */
-  template <typename T>
-  Variable(const T &val) : _data(const_cast<T*>(&val)), _meta(&Meta::Get<T>()) { assert(_meta->Valid()); } // meta must be registered!
-
-  /** Variable copy constructor.
-      Shallow copies data and meta data addresses.
-
-      \param val
-        variable to copy.
-  */
-  Variable (const Variable &var) : _data(var._data), _meta(var._meta) {}
-
-  /** Serialization
-      Attempts to serialize the object
-
-      \param os
-        ostream to output into.
-  */
-  void Serialize(std::ostream &os) { if (_meta->_serialize) _meta->_serialize(os, *this); }
-
-  /** Deserialization
-      Attempts to deserialize the given file data into the object.
-
-  \param is
-    istream to input from.
-  */
-  void Deserialize(std::istream &is) { if (_meta->_deserialize) _meta->_deserialize(is, *this); }
-
-  /** Validity Check
-      Checks if the variable contains valid data & meta information
-
-      \return
-        True if valid, false if not.
-  */
-  bool Valid() const { return _data && _meta && _meta->Valid(); }
-
-  /** Data cast.
-      Cast data into type T, asserts if T and stored meta don't match.
-  */
-  MetaInfo Type() const { return *_meta; }
-  template <typename T>
-  T & Value()
+  class Variable
   {
-    assert(Meta::Get<T>() == *_meta); // run time type-checking.
-    return (*reinterpret_cast<T *>(_data));
+    friend void Serialization::GenericSerialize(std::ostream &, Variable);
+    friend void Serialization::GenericDeserialize(std::istream &, Variable);
+
+    /** Manual setup constructor.
+        Used internally by serialization.
+
+        \param data
+          pointer to data variable represents.
+
+        \param meta
+          pointer to the meta type information representing the data.
+    */
+    Variable(void *data, const Reflection::MetaData *meta) : _data(data), _meta(meta) {}
+
+    void *_data;
+    const Reflection::MetaData *_meta;
+  public:
+
+    /** Default constructor
+    Creates an invalid Variable
+    */
+    Variable() : _data(nullptr), _meta(nullptr) {}
+
+    /** Templatized copy constructor
+        Stores val of type T generically with its associated meta.
+
+        \param val
+          Reference to data to store.
+    */
+    template <typename T, std::enable_if_t<!std::is_pointer<T>::value>* = nullptr>
+    Variable(const T &val) 
+      : _data(const_cast<T*>(&val)), 
+        _meta(&Meta::Get<T>()) 
+    { assert(_meta->Valid()); } // meta must be registered!
+
+    template <typename T>
+    Variable(const T*val) : _data(const_cast<T*>(val)), _meta(&Meta::Get<T>()) { assert(_meta->Valid()); }
+
+    /** Variable copy constructor.
+        Shallow copies data and meta data addresses.
+
+        \param val
+          variable to copy.
+    */
+    Variable(const Variable &var) : _data(var._data), _meta(var._meta) {}
+
+    /** Serialization
+        Attempts to serialize the object
+
+        \param os
+          ostream to output into.
+    */
+    void Serialize(std::ostream &os) { if (_meta->_serialize) _meta->_serialize(os, *this); }
+
+    /** Deserialization
+        Attempts to deserialize the given file data into the object.
+
+    \param is
+      istream to input from.
+    */
+    void Deserialize(std::istream &is) { if (_meta->_deserialize) _meta->_deserialize(is, *this); }
+
+    /** Validity Check
+        Checks if the variable contains valid data & meta information
+
+        \return
+          True if valid, false if not.
+    */
+    bool Valid() const { return _data && _meta && _meta->Valid(); }
+
+    /** Data cast.
+        Cast data into type T, asserts if T and stored meta don't match.
+    */
+    MetaInfo Type() const { return *_meta; }
+
+    template < typename T, std::enable_if_t<!std::is_pointer<T>::value>* = nullptr>
+    std::remove_reference_t<T> & Value()
+    {
+      assert(Meta::Get<std::remove_const_t<std::remove_reference_t<T>>>() == *_meta); // run time type-checking.
+      return (*reinterpret_cast<std::remove_reference_t<T> *>(_data));
+    }
+
+    template <typename T, std::enable_if_t<std::is_pointer<T>::value>* = nullptr>
+    T Value()
+    {
+      assert(Meta::Get<std::remove_const_t<std::remove_pointer_t<T>>>() == *_meta); // run time type-checking, ignores const and pointer types.
+      return reinterpret_cast<T>(_data);
+    }
+
+  };
+
+  std::ostream & operator<<(std::ostream &os, Variable var)
+  {
+    var.Serialize(os);
+    return os;
   }
-};
 
-std::ostream & operator<<(std::ostream &os, Variable var)
-{
-  var.Serialize(os);
-  return os;
+  std::istream & operator >> (std::istream &is, Variable var)
+  {
+    var.Deserialize(is);
+    return is;
+  }
 }
-
-std::istream & operator >> (std::istream &is, Variable var)
-{
-  var.Deserialize(is);
-  return is;
-}
-
 /***** Serialization Backend *****/
 namespace Serialization
 {
@@ -575,4 +561,127 @@ namespace Serialization
     is.get(); // first "
     var.Value<std::string>() = ReadToken(is, '"');
   }
+}
+
+/***** Function Reflection Backend *****/
+namespace Reflection
+{
+  using namespace Trs;
+
+  template <class R, class ... ArgTypes>
+  void StaticCall(Variable ret, void *self, void *fn, Variable *args, size_t num_args)
+  {
+    assert(num_args-- == sizeof ...(ArgTypes));
+    ret.Value<R>() = reinterpret_cast<R(*)(ArgTypes...)>(fn)(args[num_args--].Value<ArgTypes>()...);
+  }
+
+  template <class ... ArgTypes>
+  void VoidStaticCall(Variable ret, void *self, void *fn, Variable *args, size_t num_args)
+  {
+    assert(num_args-- == sizeof ...(ArgTypes));
+    reinterpret_cast<void(*)(ArgTypes...)>(fn)(args[num_args--].Value<ArgTypes>()...);
+  }
+
+  template <class R, class C, class ... ArgTypes>
+  void MemberCall(Variable ret, void *self, void *fn, Variable *args, size_t num_args)
+  {
+    assert(num_args-- == sizeof ...(ArgTypes));
+    assert(self != nullptr);
+    ret.Value<R>() = (((C*)self)->*reinterpret_cast<R(C::*&)(ArgTypes...)>(fn))(args[num_args--].Value<ArgTypes>()...);
+  }
+
+  template <class C, class ... ArgTypes>
+  void VoidMemberCall(Variable ret, void *self, void *fn, Variable *args, size_t num_args)
+  {
+    assert(num_args-- == sizeof ...(ArgTypes));
+    assert(self != nullptr);
+    (((C*)self)->*reinterpret_cast<void(C::*&)(ArgTypes...)>(fn))(args[num_args--].Value<ArgTypes>()...);
+  }
+
+  template <class ... ArgTypes>
+  constexpr MetaInfo GetArg(size_t index)
+  {
+    return *(std::array<const Reflection::MetaData *, sizeof ... (ArgTypes)+1> { &Meta::Get<ArgTypes>()..., nullptr })[index];
+  }
+}
+
+/***** Function Reflection Interface *****/
+namespace Trs
+{
+  class Function
+  {
+    void * _fnptr;
+
+  public:
+    template <class R, class ... ArgTypes>
+    Function(R(*fn)(ArgTypes ... args))
+      : _fnptr(fn),
+      Call(Reflection::StaticCall<R, ArgTypes...>),
+      Arg(Reflection::GetArg<ArgTypes ...>),
+      ReturnType(Meta::Get<R>()),
+      NumArgs(sizeof ... (ArgTypes))
+    {
+    }
+
+    template <class ... ArgTypes>
+    Function(void(*fn)(ArgTypes ... args))
+      : _fnptr(fn),
+      Call(Reflection::VoidStaticCall<ArgTypes...>),
+      Arg(Reflection::GetArg<ArgTypes ...>),
+      ReturnType(nullptr),
+      NumArgs(sizeof ... (ArgTypes))
+    {
+    }
+
+    template <class R, class C, class ... ArgTypes>
+    Function(R(C::*fn)(ArgTypes ... args))
+      : _fnptr((void*&)fn),
+      Call(Reflection::MemberCall<R, C, ArgTypes...>),
+      Arg(Reflection::GetArg<ArgTypes ...>),
+      ReturnType(Meta::Get<R>()),
+      NumArgs(sizeof ... (ArgTypes))
+    {
+    }
+
+    template <class C, class ... ArgTypes>
+    Function(void(C::*fn)(ArgTypes ... args))
+      : _fnptr((void*&)fn),
+      Call(Reflection::VoidMemberCall<C, ArgTypes...>),
+      Arg(Reflection::GetArg<ArgTypes ...>),
+      ReturnType(nullptr),
+      NumArgs(sizeof ... (ArgTypes))
+    {
+    }
+
+    // Wrapper call
+    void operator()(Variable ret, void * context, std::vector<Variable> args)
+    {
+      Call(ret, context, _fnptr, args.data(), args.size());
+    }
+
+    // Explict call
+    void operator()(Variable ret, void * context, Variable *arg_array, size_t size)
+    {
+      Call(ret, context, _fnptr, arg_array, size);
+    }
+
+    // Arg call
+    template <typename ... ArgTypes>
+    void operator()(Variable ret, void * context, ArgTypes ... args)
+    {
+      Variable arg[] = { args ... };
+      Call(ret, context, _fnptr, arg, sizeof ... (ArgTypes));
+    }
+
+    //0 argument call
+    void operator()(Variable ret, void *context = nullptr)
+    {
+      Call(ret, context, _fnptr, nullptr, 0);
+    }
+
+    CallFn Call;
+    GetArgFn Arg;
+    MetaInfo ReturnType;
+    const size_t NumArgs;
+  };
 }
