@@ -19,7 +19,7 @@
 namespace Reflection { class MetaData;  class Member; }
 
 /***** Reflection Interface Forward Declarations *****/
-namespace Trs { class Meta;  class Variable; }
+namespace Trs { class Meta;  class VarPtr; }
 
 /***** Serialization Forward Declarations *****/
 namespace Serialization
@@ -27,24 +27,24 @@ namespace Serialization
   using namespace Trs;
 
   /****** Function Prototypes *****/
-  void GenericSerialize(std::ostream &, Variable);
-  void GenericDeserialize(std::istream &, Variable);
-  template <typename T> void Serialize(std::ostream &, Variable);
-  template <typename T> void Deserialize(std::istream &, Variable);
-  template <> void Serialize<std::string>(std::ostream &, Variable);
-  template <> void Deserialize<std::string>(std::istream &, Variable);
+  void GenericSerialize(std::ostream &, VarPtr);
+  void GenericDeserialize(std::istream &, VarPtr);
+  template <typename T> void Serialize(std::ostream &, VarPtr);
+  template <typename T> void Deserialize(std::istream &, VarPtr);
+  template <> void Serialize<std::string>(std::ostream &, VarPtr);
+  template <> void Deserialize<std::string>(std::istream &, VarPtr);
 }
 
 /***** Serialization Declarations *****/
-typedef void(*SerializeFN)(std::ostream &, Trs::Variable);
-typedef void(*DeserializeFN)(std::istream &, Trs::Variable);
+typedef void(*SerializeFN)(std::ostream &, Trs::VarPtr);
+typedef void(*DeserializeFN)(std::istream &, Trs::VarPtr);
 
 /***** Info Types for User *****/
 typedef const Reflection::MetaData & MetaInfo;
 typedef const Reflection::Member & MemberInfo;
 
 /*****Function typedefs *****/
-typedef void(* const CallFn)(Trs::Variable ret, void * self, void *fn, Trs::Variable *args, size_t num_args);
+typedef void(* const CallFn)(Trs::VarPtr ret, void * self, void *fn, Trs::VarPtr *args, size_t num_args);
 typedef MetaInfo ( * const GetArgFn)(size_t index);
 
 /***** Reflection Backend *****/
@@ -61,7 +61,7 @@ namespace Reflection
   {
     friend class Trs::Meta;
     friend class MetaData;
-    friend void Serialization::GenericSerialize(std::ostream &, Trs::Variable);
+    friend void Serialization::GenericSerialize(std::ostream &, Trs::VarPtr);
 
     /** Constructor
 
@@ -100,8 +100,8 @@ namespace Reflection
   class MetaData
   {
     friend class Trs::Meta;
-    friend void Serialization::GenericSerialize(std::ostream &, Trs::Variable);
-    friend class Trs::Variable;
+    friend void Serialization::GenericSerialize(std::ostream &, Trs::VarPtr);
+    friend class Trs::VarPtr;
 
     /** Private default constructor
         Defaults to unregistered type.
@@ -352,13 +352,13 @@ namespace Reflection
 
 namespace Trs
 {
-  /** Generic variable class.
+  /** Generic VarPtr class.
       Used to store data generically.
   */
-  class Variable
+  class VarPtr
   {
-    friend void Serialization::GenericSerialize(std::ostream &, Variable);
-    friend void Serialization::GenericDeserialize(std::istream &, Variable);
+    friend void Serialization::GenericSerialize(std::ostream &, VarPtr);
+    friend void Serialization::GenericDeserialize(std::istream &, VarPtr);
 
     /** Manual setup constructor.
         Used internally by serialization.
@@ -369,16 +369,16 @@ namespace Trs
         \param meta
           pointer to the meta type information representing the data.
     */
-    Variable(void *data, const Reflection::MetaData *meta) : _data(data), _meta(meta) {}
+    VarPtr(void *data, const Reflection::MetaData *meta) : _data(data), _meta(meta) {}
 
     void *_data;
     const Reflection::MetaData *_meta;
   public:
 
     /** Default constructor
-    Creates an invalid Variable
+    Creates an invalid VarPtr
     */
-    Variable() : _data(nullptr), _meta(nullptr) {}
+    VarPtr() : _data(nullptr), _meta(nullptr) {}
 
     /** Templatized copy constructor
         Stores val of type T generically with its associated meta.
@@ -387,21 +387,43 @@ namespace Trs
           Reference to data to store.
     */
     template <typename T, std::enable_if_t<!std::is_pointer<T>::value>* = nullptr>
-    Variable(const T &val) 
+    VarPtr(const T &val) 
       : _data(const_cast<T*>(&val)), 
         _meta(&Meta::Get<T>()) 
     { assert(_meta->Valid()); } // meta must be registered!
 
-    template <typename T>
-    Variable(const T*val) : _data(const_cast<T*>(val)), _meta(&Meta::Get<T>()) { assert(_meta->Valid()); }
+    /** Templatized copy constructor
+        Stores val of type T generically with its associated meta.
 
-    /** Variable copy constructor.
+        \param val
+          Reference to data to store.
+    */
+    template <typename T>
+    VarPtr(const T*val) : _data(const_cast<T *>(val)), _meta(&Meta::Get<T>()) { assert(_meta->Valid()); }
+
+    /** Templatized copy constructor
+    Stores val of type T generically with its associated meta.
+
+    \param val
+    Reference to data to store.
+    */
+    VarPtr(const std::nullptr_t& val) : VarPtr() {}
+
+    /** Templatized copy constructor
+    Stores val of type T generically with its associated meta.
+
+    \param val
+    Reference to data to store.
+    */
+    VarPtr(const char *val) : _data(const_cast<char *>(val)), _meta(&Meta::Get<const char *>()) { assert(_meta->Valid()); }
+
+    /** VarPtr copy constructor.
         Shallow copies data and meta data addresses.
 
         \param val
-          variable to copy.
+          VarPtr to copy.
     */
-    Variable(const Variable &var) : _data(var._data), _meta(var._meta) {}
+    VarPtr(const VarPtr &var) : _data(var._data), _meta(var._meta) {}
 
     /** Serialization
         Attempts to serialize the object
@@ -420,7 +442,7 @@ namespace Trs
     void Deserialize(std::istream &is) { if (_meta->_deserialize) _meta->_deserialize(is, *this); }
 
     /** Validity Check
-        Checks if the variable contains valid data & meta information
+        Checks if the VarPtr contains valid data & meta information
 
         \return
           True if valid, false if not.
@@ -442,19 +464,20 @@ namespace Trs
     template <typename T, std::enable_if_t<std::is_pointer<T>::value>* = nullptr>
     T Value()
     {
-      assert(Meta::Get<std::remove_const_t<std::remove_pointer_t<T>>>() == *_meta); // run time type-checking, ignores const and pointer types.
+      assert(Meta::Get<std::remove_const_t<std::remove_pointer_t<T>>>() == *_meta ||
+             Meta::Get<T>() == *_meta); // run time type-checking, ignores const and pointer types.
       return reinterpret_cast<T>(_data);
     }
 
   };
 
-  std::ostream & operator<<(std::ostream &os, Variable var)
+  std::ostream & operator<<(std::ostream &os, VarPtr var)
   {
     var.Serialize(os);
     return os;
   }
 
-  std::istream & operator >> (std::istream &is, Variable var)
+  std::istream & operator >> (std::istream &is, VarPtr var)
   {
     var.Deserialize(is);
     return is;
@@ -496,7 +519,7 @@ namespace Serialization
 
   void *MemberPtr(void *data, size_t offset) { return ((char *)data) + offset; }
 
-  void GenericSerialize(std::ostream &os, Variable var)
+  void GenericSerialize(std::ostream &os, VarPtr var)
   {
     using namespace std;
     os << var._meta->name << endl;
@@ -506,7 +529,7 @@ namespace Serialization
     while (mem)
     {
       Padding::Add(os) << mem->name << " = " 
-        << Variable(MemberPtr(var._data, mem->offset), &mem->meta) << endl;
+        << VarPtr(MemberPtr(var._data, mem->offset), &mem->meta) << endl;
       mem = mem->_next;
     }
     Padding::Decrease();
@@ -514,7 +537,7 @@ namespace Serialization
     os << "}" << endl;
   }
 
-  void GenericDeserialize(std::istream &is, Variable var)
+  void GenericDeserialize(std::istream &is, VarPtr var)
   {
     std::string name = ReadToken(is);
     assert(name == var.Type().name);
@@ -528,35 +551,41 @@ namespace Serialization
       if (mem.Valid())
       {
         name = ReadToken(is); // = 
-        Variable(MemberPtr(var._data, mem.offset), &mem.meta).Deserialize(is);
+        VarPtr(MemberPtr(var._data, mem.offset), &mem.meta).Deserialize(is);
       }
       name = ReadToken(is); // next member
     }
   }
 
   template <typename T>
-  void Serialize(std::ostream &os, Variable var) { os << var.Value<T>(); }
+  void Serialize(std::ostream &os, VarPtr var) { os << var.Value<T>(); }
 
   template <>
-  void Serialize<bool>(std::ostream &os, Variable var) { os << (var.Value<bool>() ? "true" : "false"); }
+  void Serialize<bool>(std::ostream &os, VarPtr var) { os << (var.Value<bool>() ? "true" : "false"); }
 
   template <>
-  void Serialize<char *>(std::ostream &os, Variable var) { os << '"' << var.Value<char *>() << '"'; }
+  void Serialize<char *>(std::ostream &os, VarPtr var) { os << '"' << var.Value<char *>() << '"'; }
+
+  template <>
+  void Serialize<const char *>(std::ostream &os, VarPtr var) { os << '"' << var.Value<const char *>() << '"'; }
 
   template <> 
-  void Serialize<std::string>(std::ostream &os, Variable var) { os << '"' << var.Value<std::string>().c_str() << '"'; }
+  void Serialize<std::string>(std::ostream &os, VarPtr var) { os << '"' << var.Value<std::string>().c_str() << '"'; }
 
   template <typename T>
-  void Deserialize(std::istream &is, Variable var) { is >> var.Value<T>(); }
+  void Deserialize(std::istream &is, VarPtr var) { is >> var.Value<T>(); }
 
   template <>
-  void Deserialize<bool>(std::istream &is, Variable var) { var.Value<bool>() = (ReadToken(is) == "true" ? true : false); }
+  void Deserialize<bool>(std::istream &is, VarPtr var) { var.Value<bool>() = (ReadToken(is) == "true" ? true : false); }
 
   template <>
-  void Deserialize<char *>(std::istream &is, Variable var) { /* Don't deserialize char pointer's */ }
+  void Deserialize<char *>(std::istream &is, VarPtr var) { /* Don't deserialize char pointer's. */ }
 
   template <>
-  void Deserialize<std::string>(std::istream &is, Variable var) 
+  void Deserialize<const char *>(std::istream &is, VarPtr var) { /* Don't deserialize char pointer's. */}
+
+  template <>
+  void Deserialize<std::string>(std::istream &is, VarPtr var) 
   {
     is.get(); // first "
     var.Value<std::string>() = ReadToken(is, '"');
@@ -569,21 +598,21 @@ namespace Reflection
   using namespace Trs;
 
   template <class R, class ... ArgTypes>
-  void StaticCall(Variable ret, void *self, void *fn, Variable *args, size_t num_args)
+  void StaticCall(VarPtr ret, void *self, void *fn, VarPtr *args, size_t num_args)
   {
     assert(num_args-- == sizeof ...(ArgTypes));
     ret.Value<R>() = reinterpret_cast<R(*)(ArgTypes...)>(fn)(args[num_args--].Value<ArgTypes>()...);
   }
 
   template <class ... ArgTypes>
-  void VoidStaticCall(Variable ret, void *self, void *fn, Variable *args, size_t num_args)
+  void VoidStaticCall(VarPtr ret, void *self, void *fn, VarPtr *args, size_t num_args)
   {
     assert(num_args-- == sizeof ...(ArgTypes));
     reinterpret_cast<void(*)(ArgTypes...)>(fn)(args[num_args--].Value<ArgTypes>()...);
   }
 
   template <class R, class C, class ... ArgTypes>
-  void MemberCall(Variable ret, void *self, void *fn, Variable *args, size_t num_args)
+  void MemberCall(VarPtr ret, void *self, void *fn, VarPtr *args, size_t num_args)
   {
     assert(num_args-- == sizeof ...(ArgTypes));
     assert(self != nullptr);
@@ -591,7 +620,7 @@ namespace Reflection
   }
 
   template <class C, class ... ArgTypes>
-  void VoidMemberCall(Variable ret, void *self, void *fn, Variable *args, size_t num_args)
+  void VoidMemberCall(VarPtr ret, void *self, void *fn, VarPtr *args, size_t num_args)
   {
     assert(num_args-- == sizeof ...(ArgTypes));
     assert(self != nullptr);
@@ -654,27 +683,27 @@ namespace Trs
     }
 
     // Wrapper call
-    void operator()(Variable ret, void * context, std::vector<Variable> args)
+    void operator()(VarPtr ret, void * context, std::vector<VarPtr> args)
     {
       Call(ret, context, _fnptr, args.data(), args.size());
     }
 
     // Explict call
-    void operator()(Variable ret, void * context, Variable *arg_array, size_t size)
+    void operator()(VarPtr ret, void * context, VarPtr *arg_array, size_t size)
     {
       Call(ret, context, _fnptr, arg_array, size);
     }
 
     // Arg call
     template <typename ... ArgTypes>
-    void operator()(Variable ret, void * context, ArgTypes ... args)
+    void operator()(VarPtr ret, void * context, ArgTypes ... args)
     {
-      Variable arg[] = { args ... };
+      VarPtr arg[] = { args ... };
       Call(ret, context, _fnptr, arg, sizeof ... (ArgTypes));
     }
 
     //0 argument call
-    void operator()(Variable ret, void *context = nullptr)
+    void operator()(VarPtr ret, void *context = nullptr)
     {
       Call(ret, context, _fnptr, nullptr, 0);
     }

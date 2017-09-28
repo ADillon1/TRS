@@ -1,4 +1,4 @@
-#include "trs.hpp" //Meta, Variable, Function
+#include "trs.hpp" //Meta, VarPtr, Function
 #include <iostream> //cout
 #include <fstream> // ofstream, ifstream
 
@@ -86,7 +86,7 @@ void TestMember(const char * memName, const char *className)
     cout << "ERROR: " << className << " is not a registered abstract class." << endl;
 }
 
-void VariableTest(Trs::Variable var)
+void VarPtrTest(Trs::VarPtr var)
 {
   std::cout << var << std::endl;
 }
@@ -95,7 +95,7 @@ void VariableTest(Trs::Variable var)
 
 #define TEST_MEMBER(TYPE, MEM_NAME) TestMember<TYPE>( MEM_NAME, #TYPE )
 
-#define ADD_STACK_VARIABLES() \
+#define ADD_STACK_VarPtrS() \
 char char_val = 'a';\
 const char * c_str_val = "hello world";\
 unsigned char u_char_val = 'a';\
@@ -238,12 +238,12 @@ void test4()
   using namespace std;
   using namespace Trs;
 
-  ADD_STACK_VARIABLES();
+  ADD_STACK_VarPtrS();
 
   cout << "===== TEST 4 =====" << endl;
-  cout << "===== Variable Constructor Test =====" << endl;
+  cout << "===== VarPtr Constructor Test =====" << endl;
 
-  Variable data[14] = {
+  VarPtr data[14] = {
     char_val,
     c_str_val,
     u_char_val,
@@ -262,7 +262,7 @@ void test4()
 
 
   for (size_t i = 0; i < 14; ++i)
-    cout << "Variable type: " << data[i].Type().name << " with size: " << data[i].Type().size << endl;
+    cout << "VarPtr type: " << data[i].Type().name << " with size: " << data[i].Type().size << endl;
 }
 
 void test5() 
@@ -271,9 +271,9 @@ void test5()
   using namespace Trs;
 
   cout << "===== TEST 5 =====" << endl;
-  cout << "===== Variable Default constructor =====" << endl;
+  cout << "===== VarPtr Default constructor =====" << endl;
 
-  Variable var;
+  VarPtr var;
   if (!var.Valid())
     cout << "Pass." << endl;
 }
@@ -285,13 +285,13 @@ void test6()
 
   std::string data = "Hello World";
   cout << "===== TEST 6 =====" << endl;
-  cout << "===== By Value Variable Passing =====" << endl;
+  cout << "===== By Value VarPtr Passing =====" << endl;
 
-  Variable var = data;
+  VarPtr var = data;
   cout << "Value before by value pass: ";
   cout << var << endl;
   cout << "Value after by value pass: ";
-  VariableTest(var);
+  VarPtrTest(var);
 }
 
 void test7() 
@@ -305,7 +305,7 @@ void test7()
   int i = 10;
   int &r = i;
 
-  Variable var = r; // store reference to int
+  VarPtr var = r; // store reference to int
 
   int b = var.Value<int &>();
   int c = var.Value<int> (); // if this compiles you pass.
@@ -324,7 +324,7 @@ void test8()
   int s = 1;             // stack memory
   int *h = new int(2);   // heap memory
   
-  Variable var = s;
+  VarPtr var = s;
   cout << "Stack Memory" << endl;
   cout << "int: " << var.Value<int>() << endl;
   cout << "const int: " << var.Value<const int>() << endl;
@@ -341,17 +341,57 @@ void test8()
   cout << "const int &: " << var.Value<const int &>() << endl;
   cout << "int *" << var.Value<int *>() << endl;
   cout << "const int *: " << var.Value<const int *>() << endl;
-  
+
   delete (h);
 }
 
-void test9() 
+void test9()
 {
+  using namespace std;
+  using namespace Trs;
 
+  cout << "===== TEST 9 =====" << endl;
+  cout << "===== Pointer handling =====" << endl;
+  int * pint = new int(3);
+
+  VarPtr p = pint;
+
+  int three = p.Value<int>();
+  int &rthree = p.Value<int>();
+
+  int *pthree = p.Value<int *>();
+
+  assert(three == *pint); // assert that this is all the same data
+  assert(pthree == pint);
+  assert(pint == &rthree);
+
+  cout << "If you see this you pass." << endl;
+
+  delete(pint);
 }
 
-void test10() {}
-void test11() {}
+void test10() 
+{
+  using namespace std;
+  using namespace Trs;
+
+  char str1[] = "I am non-const";
+  const char *str2 = "hello";
+  std::string str3 = "world";
+
+  VarPtr var1 = str1;
+  VarPtr var2 = str2;
+  VarPtr var3 = str3;
+  VarPtr var4 = str3.c_str();
+
+  cout << var1 << var2 << var3 << var4 << endl;
+}
+
+void test11() 
+{
+
+
+}
 void test12() {}
 void test13() {}
 void test14() {}
@@ -380,3 +420,20 @@ int main(int argc, char *argv[])
 
   return 0;
 }
+
+/* TODO items:
+* Redesign Meta Interface
+* Add in new, shallow copy, deep copy, and delete auto generated functions
+* Unit tests for functions
+* Add enforcement of const correctness
+* Add in custom assert system for low level errors (and unhandled high level errors)
+* Add in optional redefining of assert to custom assertion system
+* Add in exception handling for high level user errors.
+* Make serialization optional for certain types (const types, etc)
+* Enforce type saftey for serialization
+* Reimplement static type array and auto registeration on member registration and VarPtr assignment
+* Remove Trs namespace
+* Change VarPtr to VarPtr
+* Convert Meta from class to namespace, place VarPtr inside of it. (maybe)
+* Generic Getter and Setter for class members
+*/
