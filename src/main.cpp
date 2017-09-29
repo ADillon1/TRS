@@ -39,6 +39,7 @@ struct test_struct
   {}
 
   int Get() { return int_val; }
+  void Set(int i) { int_val = i; }
 };
 
 int test_fn(std::string a, float b)
@@ -52,35 +53,35 @@ void TestType(const char * name, const char * actualName)
   using namespace Trs;
   using namespace std;
 
-  MetaInfo meta = Meta::Get<T>();
-  if (meta == Meta::Get(name))
+  MetaInfo meta = Meta::GetType<T>();
+  if (meta == Meta::GetType(name))
     cout << "Type Name: " << meta.name << " Size: " << meta.size << endl;
   else 
     cout << "ERROR: Type " << actualName << " is not registered properly!" << endl;
 }
 
 template <typename T>
-void TestMember(const char * memName, const char *className)
+void TestProperty(const char * memName, const char *className)
 {
   using namespace Trs;
   using namespace std;
 
-  MetaInfo meta = Meta::Get<T>();
+  MetaInfo meta = Meta::GetType<T>();
 
   if (meta.Valid())
   {
-    MemberInfo mem = meta.FindMember(memName);
+    PropertyInfo mem = meta.properties.find(memName);
     if (mem.Valid())
     {
-      cout << "Member Name: " <<
+      cout << "Property Name: " <<
         mem.name <<
-        " Member Type Name: " <<
+        " Property Type Name: " <<
         mem.meta.name <<
-        " Member offset: " <<
+        " Property offset: " <<
         mem.offset << endl;
     }
     else
-      cout << "ERROR: " << className << " has no member " << memName << "." << endl;
+      cout << "ERROR: " << className << " has no Property " << memName << "." << endl;
   }
   else
     cout << "ERROR: " << className << " is not a registered abstract class." << endl;
@@ -93,7 +94,7 @@ void VarPtrTest(Trs::VarPtr var)
 
 #define TEST_TYPE(TYPE, NAME) TestType<TYPE>( NAME, #TYPE )
 
-#define TEST_MEMBER(TYPE, MEM_NAME) TestMember<TYPE>( MEM_NAME, #TYPE )
+#define TEST_Property(TYPE, MEM_NAME) TestProperty<TYPE>( MEM_NAME, #TYPE )
 
 #define ADD_STACK_VarPtrS() \
 char char_val = 'a';\
@@ -161,20 +162,20 @@ void test1()
   Meta::Register("bool_val", &test_struct::bool_val);
   Meta::Register("string_val", &test_struct::string_val);
 
-  TEST_MEMBER(test_struct, "char_val");
-  TEST_MEMBER(test_struct, "c_str_val");
-  TEST_MEMBER(test_struct, "u_char_val");
-  TEST_MEMBER(test_struct, "int_val");
-  TEST_MEMBER(test_struct, "u_in_val");
-  TEST_MEMBER(test_struct, "short_val");
-  TEST_MEMBER(test_struct, "u_short_val");
-  TEST_MEMBER(test_struct, "long_val");
-  TEST_MEMBER(test_struct, "u_long_val");
-  TEST_MEMBER(test_struct, "float_val");
-  TEST_MEMBER(test_struct, "double_val");
-  TEST_MEMBER(test_struct, "long_double_val");
-  TEST_MEMBER(test_struct, "bool_val");
-  TEST_MEMBER(test_struct, "string_val");
+  TEST_Property(test_struct, "char_val");
+  TEST_Property(test_struct, "c_str_val");
+  TEST_Property(test_struct, "u_char_val");
+  TEST_Property(test_struct, "int_val");
+  TEST_Property(test_struct, "u_in_val");
+  TEST_Property(test_struct, "short_val");
+  TEST_Property(test_struct, "u_short_val");
+  TEST_Property(test_struct, "long_val");
+  TEST_Property(test_struct, "u_long_val");
+  TEST_Property(test_struct, "float_val");
+  TEST_Property(test_struct, "double_val");
+  TEST_Property(test_struct, "long_double_val");
+  TEST_Property(test_struct, "bool_val");
+  TEST_Property(test_struct, "string_val");
 }
 
 // Invalid Meta Test
@@ -185,8 +186,8 @@ void test2()
   cout << "===== TEST 2 =====" << endl;
   cout << "===== Invalid Meta =====" << endl;
 
-  MetaInfo meta1 = Meta::Get("SomeClassThatDoesn'tExist");
-  MetaInfo meta2 = Meta::Get<Unregistered_Class>();
+  MetaInfo meta1 = Meta::GetType("SomeClassThatDoesn'tExist");
+  MetaInfo meta2 = Meta::GetType<Unregistered_Class>();
 
   cout << "Through string: ";
   if (!meta1.Valid())
@@ -201,34 +202,33 @@ void test2()
     cout << "Something went wrong with registration." << endl;
 }
 
-// Invalid Member Test.
+// Invalid Property Test.
 void test3() 
 {
   using namespace std;
   using namespace Trs;
   cout << "===== TEST 3 =====" << endl;
-  cout << "===== Invalid Member =====" << endl;
+  cout << "===== Invalid Property =====" << endl;
 
-  MetaInfo meta = Meta::Get("test_struct");
+  MetaInfo meta = Meta::GetType("test_struct");
 
   if (meta.Valid())
   {
     cout << "Attempt to get:" << endl;
+    PropertyInfo real = meta.properties.find("int_val");
+    PropertyInfo fake = meta.properties.find("SomePropertyThatDoesn'tExist");
 
-    MemberInfo real = meta.FindMember("int_val");
-    MemberInfo fake = meta.FindMember("SomeMemberThatDoesn'tExist");
-
-    cout << "Valid Member: ";
+    cout << "Valid Property: ";
     if (real.Valid())
       cout << "Pass." << endl;
     else
-      cout << "ERROR: Something went wrong with member registration." << endl;
+      cout << "ERROR: Something went wrong with Property registration." << endl;
 
-    cout << "Invalid Member: ";
+    cout << "Invalid Property: ";
     if (!fake.Valid())
       cout << "Pass." << endl;
     else
-      cout << "ERROR: Something went wrong with member registration." << endl;
+      cout << "ERROR: Something went wrong with Property registration." << endl;
   }
   else
     cout << "Unable to get test struct meta." << endl;
@@ -389,9 +389,26 @@ void test10()
 
 void test11() 
 {
+  Trs::Meta::Register("get", &test_struct::Get);
+  Trs::Meta::Register("set", &test_struct::Set);
+  MetaInfo meta = Trs::Meta::GetType<test_struct>();
 
+  int ret = 0;
+  test_struct *d = new test_struct();
+  FunctionInfo getter = meta.functions.find("get");
+  FunctionInfo setter = meta.functions.find("set");
+  Trs::VarPtr * args = nullptr;
 
+  getter(ret, d);
+  setter(Trs::VarPtr(), d, 1000);
+  getter(ret, d);
+
+  Trs::VarPtr a;
+  Trs::VarPtr b = a;
+
+  Trs::VarPtr c = b.Value<Trs::VarPtr>();
 }
+
 void test12() {}
 void test13() {}
 void test14() {}
@@ -431,9 +448,9 @@ int main(int argc, char *argv[])
 * Add in exception handling for high level user errors.
 * Make serialization optional for certain types (const types, etc)
 * Enforce type saftey for serialization
-* Reimplement static type array and auto registeration on member registration and VarPtr assignment
+* Reimplement static type array and auto registeration on Property registration and VarPtr assignment
 * Remove Trs namespace
 * Change VarPtr to VarPtr
 * Convert Meta from class to namespace, place VarPtr inside of it. (maybe)
-* Generic Getter and Setter for class members
+* Generic Getter and Setter for class Propertys
 */
