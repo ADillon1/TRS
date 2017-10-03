@@ -1,8 +1,13 @@
-#include "trs.hpp" //Meta, VarPtr, Function
+#include "./trs/trs.hpp" //Meta, VarPtr, Function
 #include <iostream> //cout
 #include <fstream> // ofstream, ifstream
 
 struct Unregistered_Class {};
+
+#define PASTE( _, __ )  _##__
+#define INTERMEDIATE( _ ) PASTE( test, _ )
+#define GENERATE_NAME( ) INTERMEDIATE( __COUNTER__ )
+#define TEST GENERATE_NAME()
 
 struct test_struct
 {
@@ -38,23 +43,21 @@ struct test_struct
     string_val("test string")
   {}
 
-  int Get() { return int_val; }
+  int* Get() { return &int_val; }
   void Set(int i) { int_val = i; }
 };
 
-int test_fn(std::string a, float b)
-{
-  return 5;
-}
+int test_fn(std::string a, float b) { return (int)b; }
+
+void test_fn2() { std::cout << "inside static function 2!" << std::endl;  }
 
 template <typename T>
 void TestType(const char * name, const char * actualName)
 {
-  using namespace Trs;
   using namespace std;
 
-  MetaInfo meta = Meta::GetType<T>();
-  if (meta == Meta::GetType(name))
+  MetaInfo meta = trs::get_type<T>();
+  if (meta == trs::get_type(name))
     cout << "Type Name: " << meta.name << " Size: " << meta.size << endl;
   else 
     cout << "ERROR: Type " << actualName << " is not registered properly!" << endl;
@@ -63,15 +66,14 @@ void TestType(const char * name, const char * actualName)
 template <typename T>
 void TestProperty(const char * memName, const char *className)
 {
-  using namespace Trs;
   using namespace std;
 
-  MetaInfo meta = Meta::GetType<T>();
+  MetaInfo meta = trs::get_type<T>();
 
-  if (meta.Valid())
+  if (meta.valid())
   {
     PropertyInfo mem = meta.properties.find(memName);
-    if (mem.Valid())
+    if (mem.valid())
     {
       cout << "Property Name: " <<
         mem.name <<
@@ -87,9 +89,9 @@ void TestProperty(const char * memName, const char *className)
     cout << "ERROR: " << className << " is not a registered abstract class." << endl;
 }
 
-void VarPtrTest(Trs::VarPtr var)
+void VarPtrTest(trs::VarPtr var)
 {
-  std::cout << var << std::endl;
+  var.serialize(std::cout) << std::endl;
 }
 
 #define TEST_TYPE(TYPE, NAME) TestType<TYPE>( NAME, #TYPE )
@@ -111,13 +113,12 @@ double double_val = 4 * atan(1);\
 long double long_double_val = 4 * atan(1);\
 bool bool_val = false;\
 std::string string_val = "hello world";\
-test_struct abstract_class
+test_struct abstract_class;
 
 // Automated POD type get check
-void test0() 
+void TEST()
 {
   using namespace std;
-  cout << "===== TEST 0 =====" << endl;
   cout << "===== Auto Registered Types =====" << endl;
   TEST_TYPE(char, "char");
   TEST_TYPE(const char *, "const char *");
@@ -134,34 +135,33 @@ void test0()
   TEST_TYPE(bool, "bool");
   TEST_TYPE(std::string, "string");
 }
-
 // Abstract Class Registration check.
-void test1() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-  cout << "===== TEST 1 =====" << endl;
   cout << "===== Abstract Registeration =====" << endl;
+  
+  static char name[] = "test_struct";
+  trs::reflect<test_struct>(name)
+    .constructor<>()
+    .property("char_val", &test_struct::char_val)
+    .property("c_str_val", &test_struct::c_str_val)
+    .property("u_char_val", &test_struct::u_char_val)
+    .property("int_val", &test_struct::int_val)
+    .property("u_in_val", &test_struct::u_in_val)
+    .property("short_val", &test_struct::short_val)
+    .property("u_short_val", &test_struct::u_short_val)
+    .property("long_val", &test_struct::long_val)
+    .property("u_long_val", &test_struct::u_long_val)
+    .property("float_val", &test_struct::float_val)
+    .property("double_val", &test_struct::double_val)
+    .property("long_double_val", &test_struct::long_double_val)
+    .property("bool_val", &test_struct::bool_val)
+    .property("string_val", &test_struct::string_val)
+    .function("get", &test_struct::Get)
+    .function("set", &test_struct::Set);
 
-  char name[] = "test_struct";
-  Meta::Register<test_struct>(name); // issue.
   TEST_TYPE(test_struct, name);
-
-  Meta::Register("char_val", &test_struct::char_val);
-  Meta::Register("c_str_val", &test_struct::c_str_val);
-  Meta::Register("u_char_val", &test_struct::u_char_val);
-  Meta::Register("int_val", &test_struct::int_val);
-  Meta::Register("u_in_val", &test_struct::u_in_val);
-  Meta::Register("short_val", &test_struct::short_val);
-  Meta::Register("u_short_val", &test_struct::u_short_val);
-  Meta::Register("long_val", &test_struct::long_val);
-  Meta::Register("u_long_val", &test_struct::u_long_val);
-  Meta::Register("float_val", &test_struct::float_val);
-  Meta::Register("double_val", &test_struct::double_val);
-  Meta::Register("long_double_val", &test_struct::long_double_val);
-  Meta::Register("bool_val", &test_struct::bool_val);
-  Meta::Register("string_val", &test_struct::string_val);
-
   TEST_Property(test_struct, "char_val");
   TEST_Property(test_struct, "c_str_val");
   TEST_Property(test_struct, "u_char_val");
@@ -179,53 +179,49 @@ void test1()
 }
 
 // Invalid Meta Test
-void test2() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-  cout << "===== TEST 2 =====" << endl;
   cout << "===== Invalid Meta =====" << endl;
 
-  MetaInfo meta1 = Meta::GetType("SomeClassThatDoesn'tExist");
-  MetaInfo meta2 = Meta::GetType<Unregistered_Class>();
+  MetaInfo meta1 = trs::get_type("SomeClassThatDoesn'tExist");
+  MetaInfo meta2 = trs::get_type<Unregistered_Class>();
 
   cout << "Through string: ";
-  if (!meta1.Valid())
+  if (!meta1.valid())
     cout << "Pass." << endl;
   else
     cout << "Something went wrong with registration." << endl;
 
   cout << "Through template: ";
-  if (!meta2.Valid())
+  if (!meta2.valid())
     cout << "Pass." << endl;
   else
     cout << "Something went wrong with registration." << endl;
 }
 
 // Invalid Property Test.
-void test3() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-  cout << "===== TEST 3 =====" << endl;
   cout << "===== Invalid Property =====" << endl;
 
-  MetaInfo meta = Meta::GetType("test_struct");
+  MetaInfo meta = trs::get_type("test_struct");
 
-  if (meta.Valid())
+  if (meta.valid())
   {
     cout << "Attempt to get:" << endl;
     PropertyInfo real = meta.properties.find("int_val");
     PropertyInfo fake = meta.properties.find("SomePropertyThatDoesn'tExist");
 
     cout << "Valid Property: ";
-    if (real.Valid())
+    if (real.valid())
       cout << "Pass." << endl;
     else
       cout << "ERROR: Something went wrong with Property registration." << endl;
 
     cout << "Invalid Property: ";
-    if (!fake.Valid())
+    if (!fake.valid())
       cout << "Pass." << endl;
     else
       cout << "ERROR: Something went wrong with Property registration." << endl;
@@ -233,17 +229,12 @@ void test3()
   else
     cout << "Unable to get test struct meta." << endl;
 }
-void test4() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-
-  ADD_STACK_VarPtrS();
-
-  cout << "===== TEST 4 =====" << endl;
   cout << "===== VarPtr Constructor Test =====" << endl;
-
-  VarPtr data[14] = {
+  ADD_STACK_VarPtrS();
+  trs::VarPtr data[14] = {
     char_val,
     c_str_val,
     u_char_val,
@@ -262,104 +253,89 @@ void test4()
 
 
   for (size_t i = 0; i < 14; ++i)
-    cout << "VarPtr type: " << data[i].Type().name << " with size: " << data[i].Type().size << endl;
+    cout << "VarPtr type: " << data[i].type().name << " with size: " << data[i].type().size << endl;
 }
 
-void test5() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-
-  cout << "===== TEST 5 =====" << endl;
   cout << "===== VarPtr Default constructor =====" << endl;
 
-  VarPtr var;
-  if (!var.Valid())
+  trs::VarPtr var;
+  if (!var.valid())
     cout << "Pass." << endl;
 }
 
-void test6() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-
   std::string data = "Hello World";
-  cout << "===== TEST 6 =====" << endl;
   cout << "===== By Value VarPtr Passing =====" << endl;
 
-  VarPtr var = data;
+  trs::VarPtr var = data;
   cout << "Value before by value pass: ";
-  cout << var << endl;
+  var.serialize(cout) << endl;
   cout << "Value after by value pass: ";
   VarPtrTest(var);
 }
 
-void test7() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-
-  cout << "===== TEST 7 =====" << endl;
   cout << "===== Ignore Reference Types =====" << endl;
 
   int i = 10;
   int &r = i;
 
-  VarPtr var = r; // store reference to int
+  trs::VarPtr var = r; // store reference to int
 
-  int b = var.Value<int &>();
-  int c = var.Value<int> (); // if this compiles you pass.
+  int b = var.value<int &>();
+  int c = var.value<int> (); // if this compiles you pass.
 
   cout << "Pass." << endl;
 }
 
-void test8() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-
-  cout << "===== TEST 8 =====" << endl;
   cout << "===== Pointer/Reference Agnosticism =====" << endl;
 
   int s = 1;             // stack memory
   int *h = new int(2);   // heap memory
   
-  VarPtr var = s;
+  trs::VarPtr var = s;
   cout << "Stack Memory" << endl;
-  cout << "int: " << var.Value<int>() << endl;
-  cout << "const int: " << var.Value<const int>() << endl;
-  cout << "int &: " << var.Value<int &>() << endl;
-  cout << "const int &: " << var.Value<const int &>() << endl;
-  cout << "int *: " << var.Value<int *>() << endl;
-  cout << "const int *: " << var.Value<const int *>() << endl << endl;
+  cout << "int: " << var.value<int>() << endl;
+  cout << "const int: " << var.value<const int>() << endl;
+  cout << "int &: " << var.value<int &>() << endl;
+  cout << "const int &: " << var.value<const int &>() << endl;
+  cout << "int *: " << var.value<int *>() << endl;
+  cout << "const int *: " << var.value<const int *>() << endl << endl;
 
   var = h;
   cout << "Heap Memory" << endl;
-  cout << "int: " << var.Value<int>() << endl;
-  cout << "const int: " << var.Value<const int>() << endl;
-  cout << "int &: " << var.Value<int &>() << endl;
-  cout << "const int &: " << var.Value<const int &>() << endl;
-  cout << "int *" << var.Value<int *>() << endl;
-  cout << "const int *: " << var.Value<const int *>() << endl;
+  cout << "int: " << var.value<int>() << endl;
+  cout << "const int: " << var.value<const int>() << endl;
+  cout << "int &: " << var.value<int &>() << endl;
+  cout << "const int &: " << var.value<const int &>() << endl;
+  cout << "int *" << var.value<int *>() << endl;
+  cout << "const int *: " << var.value<const int *>() << endl;
 
   delete (h);
 }
 
-void test9()
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-
-  cout << "===== TEST 9 =====" << endl;
   cout << "===== Pointer handling =====" << endl;
   int * pint = new int(3);
 
-  VarPtr p = pint;
+  trs::VarPtr p = pint;
 
-  int three = p.Value<int>();
-  int &rthree = p.Value<int>();
+  int three = p.value<int>();
+  int &rthree = p.value<int>();
 
-  int *pthree = p.Value<int *>();
+  int *pthree = p.value<int *>();
 
   assert(three == *pint); // assert that this is all the same data
   assert(pthree == pint);
@@ -370,78 +346,141 @@ void test9()
   delete(pint);
 }
 
-void test10() 
+void TEST()
 {
   using namespace std;
-  using namespace Trs;
-
-  char str1[] = "I am non-const";
+  cout << "===== Type conversion test  =====" << endl;
+  char str1[] = "I am non-const char";
   const char *str2 = "hello";
   std::string str3 = "world";
 
-  VarPtr var1 = str1;
-  VarPtr var2 = str2;
-  VarPtr var3 = str3;
-  VarPtr var4 = str3.c_str();
+  trs::VarPtr var1 = str1;
+  trs::VarPtr var2 = str2;
+  trs::VarPtr var3 = str3;
+  trs::VarPtr var4 = str3.c_str();
 
-  cout << var1 << var2 << var3 << var4 << endl;
+  var1.serialize(cout) << ' ';
+  var2.serialize(cout) << ' ';
+  var3.serialize(cout) << ' '; 
+  var4.serialize(cout) << endl;
 }
 
-void test11() 
+void TEST()
 {
-  Trs::Meta::Register("get", &test_struct::Get);
-  Trs::Meta::Register("set", &test_struct::Set);
-  MetaInfo meta = Trs::Meta::GetType<test_struct>();
-
-  int ret = 0;
+  using namespace std;
+  cout << "===== Member Function Test  =====" << endl;
+  MetaInfo meta = trs::get_type<test_struct>();
+  
   test_struct *d = new test_struct();
   FunctionInfo getter = meta.functions.find("get");
   FunctionInfo setter = meta.functions.find("set");
-  Trs::VarPtr * args = nullptr;
-
-  getter(ret, d);
-  setter(Trs::VarPtr(), d, 1000);
-  getter(ret, d);
-
-  Trs::VarPtr a;
-  Trs::VarPtr b = a;
-
-  Trs::VarPtr c = b.Value<Trs::VarPtr>();
+  
+  trs::VarPtr ptr = (int *)nullptr; // set it equal to nullptr
+  getter(ptr, d);
+  cout << "before: ";
+  ptr.serialize(cout) << endl;
+  setter(trs::VarPtr(), d, 500);
+  getter(ptr, d);
+  
+  cout << "after: ";
+  ptr.serialize(cout) << endl;
+  delete d;
 }
 
-void test12() {}
-void test13() {}
-void test14() {}
-void test15() {}
-void test16() {}
-void test17() {}
-void test18() {}
-void test19() {}
+void TEST()
+{
+  using namespace std;
+  cout << "===== Static Function Test  =====" << endl;
+  trs::reflect("static_func", test_fn);
+  trs::reflect("static_func2", test_fn2);
+  std::string a = "test!";
+  float b = 10.0f;
+  trs::VarPtr ret = 10;
 
-void(*tests[])() = {
+  FunctionInfo fn = trs::get_func("static_func");
+  FunctionInfo fn2 = trs::get_func("static_func2");
+
+  if (fn.valid())
+  {
+    int i = 10;
+    trs::VarPtr ret = i;
+    fn(ret, nullptr, a, b);
+    std::cout << "return from fn: " << ret.value<int>() << endl;
+  }
+  else
+    cout << "ERROR: registering static_fn." << endl;
+
+  if (fn2.valid())
+    fn2(trs::VarPtr());
+  else
+    cout << "ERROR: registering static_fn2." << endl;
+}
+
+void TEST()
+{
+
+}
+void TEST() 
+{
+
+}
+
+void TEST() 
+{
+
+}
+
+void TEST() 
+{
+
+}
+
+void TEST() 
+{
+
+}
+
+void TEST() 
+{
+
+}
+
+void TEST() 
+{
+
+}
+void TEST() 
+{
+
+}
+
+std::vector<void(*)()> tests = {
   test0, test1, test2, test3, test4, test5, test6,
   test7, test8, test9, test10, test11, test12, test13,
-  test14, test15, test16, test17, test18, test19
+  test14, test15, test16, test17, test18, test19, test20
 };
 
 int main(int argc, char *argv[])
 {
-  if (argc == 2 && (atoi(argv[1]) >= 0 && atoi(argv[1]) < 20))
+  using namespace std;
+  if (argc == 2 && (atoi(argv[1]) >= 0 && atoi(argv[1]) < (int)tests.size()))
   {
     tests[atoi(argv[1])]();
     return 0;
   }
 
-  for (size_t i = 0; i < 20; ++i)
+  for (size_t i = 0; i < (int)tests.size(); ++i)
+  {
+    cout << "===== TEST " << i << " =====" << endl;
     tests[i]();
+    cout << endl;
+  }
 
   return 0;
 }
 
 /* TODO items:
-* Redesign Meta Interface
 * Add in new, shallow copy, deep copy, and delete auto generated functions
-* Unit tests for functions
 * Add enforcement of const correctness
 * Add in custom assert system for low level errors (and unhandled high level errors)
 * Add in optional redefining of assert to custom assertion system
@@ -449,8 +488,6 @@ int main(int argc, char *argv[])
 * Make serialization optional for certain types (const types, etc)
 * Enforce type saftey for serialization
 * Reimplement static type array and auto registeration on Property registration and VarPtr assignment
-* Remove Trs namespace
-* Change VarPtr to VarPtr
 * Convert Meta from class to namespace, place VarPtr inside of it. (maybe)
 * Generic Getter and Setter for class Propertys
 */
