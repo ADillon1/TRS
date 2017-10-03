@@ -416,9 +416,42 @@ void TEST()
     cout << "ERROR: registering static_fn2." << endl;
 }
 
+struct test
+{
+  float a;
+  int b;
+  int &get() { return b; }
+  void set(float val) { a = val; }
+};
+
 void TEST()
 {
+  using namespace std;
+  //int and float auto registered.
 
+  trs::reflect<test>("test_struct")
+    .constructor<>()               // add generic construction.
+    .property("a", &test::a)
+    .property("b", &test::b)
+    .function("get", &test::get)   // add functions
+    .function("set", &test::set);
+
+  MetaInfo meta = trs::get_type<test>();
+
+  if (meta.valid())
+  {
+    for (auto &it : meta.properties)
+      cout << it.second.name;
+
+    for (auto &it : meta.functions)
+      cout << it.second.name;
+
+    test t;
+    int i = 10;
+    trs::VarPtr ret = i;
+    meta.properties.find("a").valid();
+    meta.functions.find("get")(ret, &t);
+  }
 }
 void TEST() 
 {
@@ -480,7 +513,9 @@ int main(int argc, char *argv[])
 }
 
 /* TODO items:
+* Add constructor support
 * Add in new, shallow copy, deep copy, and delete auto generated functions
+* Add support for standard allocators.
 * Add enforcement of const correctness
 * Add in custom assert system for low level errors (and unhandled high level errors)
 * Add in optional redefining of assert to custom assertion system
